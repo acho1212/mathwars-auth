@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <title>MathWars</title>
+  <style>
+    :root {
+      --bg: #F7F9FC;
+      --card: #FFFFFF;
+      --ink: #0B1F33;
+      --muted: #5B6B7F;
+      --border: #DDE6F0;
+      --primary: #1E88E5;
+      --ok: #2E7D32;
+      --ok-soft: #E8F5E9;
+      --bad: #C62828;
+      --bad-soft: #FDECEA;
+      --info: #1565C0;
+      --info-soft: #E8F2FD;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0F172A;
+        --card: #1E293B;
+        --ink: #F8FAFC;
+        --muted: #94A3B8;
+        --border: #334155;
+        --ok: #86EFAC;
+        --ok-soft: #143A26;
+        --bad: #FCA5A5;
+        --bad-soft: #3A1F27;
+        --info: #90CAF9;
+        --info-soft: #1E3A5F;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-text-size-adjust: 100%;
+    }
+    main {
+      width: 100%;
+      max-width: 420px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 32px 24px 24px;
+      text-align: center;
+    }
+    .brand {
+      margin: 0 0 24px;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      color: var(--primary);
+    }
+    .badge {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--ok-soft);
+      color: var(--ok);
+    }
+    .badge svg { width: 36px; height: 36px; }
+    body[data-state="error"] .badge { background: var(--bad-soft); color: var(--bad); }
+    body[data-state="info"] .badge { background: var(--info-soft); color: var(--info); }
+    h1 { margin: 0 0 8px; font-size: 24px; line-height: 1.25; font-weight: 700; }
+    p { margin: 0; font-size: 15px; line-height: 1.55; color: var(--muted); }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 52px;
+      margin-top: 24px;
+      border-radius: 26px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .btn:active { opacity: 0.85; }
+    .note { margin-top: 16px; font-size: 13px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body data-state="ok">
+  <main>
+    <p class="brand">MathWars</p>
+
+    <div class="badge" aria-hidden="true">
+      <svg id="icon-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      <svg id="icon-bad" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M6 6l12 12M18 6L6 18"/></svg>
+      <svg id="icon-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M12 11v6M12 7.5v.01"/></svg>
+    </div>
+
+    <h1 id="title">Memeriksa tautan…</h1>
+    <p id="message">Sebentar ya.</p>
+
+    <a id="open" class="btn" href="#" hidden>Buka MathWars</a>
+    <p id="note" class="note" hidden></p>
+  </main>
+
+  <script>
+    (function () {
+      // Hanya skema aplikasi yang diizinkan, supaya halaman ini tidak bisa dipakai mengalihkan ke alamat sembarang.
+      var ALLOWED_APP = /^(mathwars|exp|exps):\/\//i;
+      var DEFAULT_APP = 'mathwars://login';
+
+      var query = new URLSearchParams(window.location.search);
+      var rawHash = window.location.hash || '';
+      var frag = new URLSearchParams(rawHash.replace(/^#/, ''));
+
+      var appBase = query.get('app');
+      appBase = appBase && ALLOWED_APP.test(appBase) ? appBase.split('#')[0] : DEFAULT_APP;
+
+      var hasTokens = !!(frag.get('access_token') && frag.get('refresh_token'));
+      var errorText = frag.get('error_description') || query.get('error_description') || frag.get('error') || query.get('error');
+      var infoMessage = frag.get('message') || query.get('message');
+      var type = frag.get('type') || query.get('type') || '';
+
+      var COPY = {
+        signup: ['Email berhasil diverifikasi', 'Akun guru kamu sudah aktif. Lanjutkan ke aplikasi untuk masuk.'],
+        recovery: ['Tautan reset berhasil dibuka', 'Lanjutkan di aplikasi untuk membuat kata sandi baru.'],
+        email_change: ['Email berhasil dikonfirmasi', 'Perubahan email sudah dikonfirmasi. Lanjutkan ke aplikasi.'],
+        magiclink: ['Tautan masuk valid', 'Lanjutkan ke aplikasi untuk masuk.'],
+        invite: ['Undangan diterima', 'Lanjutkan ke aplikasi untuk menyelesaikan pendaftaran.']
+      };
+
+      var state = 'ok';
+      var title, message, showOpen = true;
+      var note = 'Kalau tombol tidak membuka aplikasi, buka MathWars secara manual. Akunmu sudah tersimpan. Bila halaman ini terbuka di dalam Gmail, pilih menu titik tiga lalu “Buka di Chrome”, kemudian ketuk tombol lagi.';
+
+      if (errorText) {
+        state = 'error';
+        title = 'Tautan tidak berlaku';
+        message = 'Tautan sudah kedaluwarsa atau pernah dipakai. Minta tautan baru dari aplikasi MathWars.';
+        note = 'Kalau kamu baru saja mengetuk tautan yang sama, akunmu mungkin sudah terverifikasi. Coba masuk langsung di aplikasi.';
+      } else if (hasTokens) {
+        var c = COPY[type] || ['Berhasil', 'Lanjutkan ke aplikasi MathWars.'];
+        title = c[0];
+        message = c[1];
+      } else if (infoMessage) {
+        state = 'info';
+        title = 'Satu langkah lagi';
+        message = 'Konfirmasi diterima. Selesaikan juga konfirmasi di email satunya (email lama atau baru), lalu kembali ke aplikasi.';
+      } else {
+        state = 'info';
+        title = 'MathWars';
+        message = 'Halaman ini membantu membuka aplikasi dari tautan di email. Buka tautan dari email untuk melanjutkan.';
+        note = '';
+      }
+
+      // Teruskan token ke aplikasi lewat fragmen yang sama; aplikasi yang menyimpan sesi.
+      var deepLink = appBase + (hasTokens || errorText ? rawHash : '');
+
+      document.body.setAttribute('data-state', state);
+      document.getElementById('title').textContent = title;
+      document.getElementById('message').textContent = message;
+      document.getElementById('icon-ok').hidden = state !== 'ok';
+      document.getElementById('icon-bad').hidden = state !== 'error';
+      document.getElementById('icon-info').hidden = state !== 'info';
+
+      var open = document.getElementById('open');
+      if (showOpen && (hasTokens || errorText)) {
+        open.href = deepLink;
+        open.hidden = false;
+      }
+      var noteEl = document.getElementById('note');
+      if (note) {
+        noteEl.textContent = note;
+        noteEl.hidden = false;
+      }
+
+      // Hapus token dari bilah alamat dan riwayat setelah dibaca.
+      if (rawHash && window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    })();
+  </script>
+</body>
+</html>
